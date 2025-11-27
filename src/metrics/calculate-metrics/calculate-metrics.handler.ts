@@ -6,10 +6,7 @@ import { CalculateMetricsResponse } from "./calculate-metrics.response";
 export class CalculateMetricsHandler {
   constructor(private metricsRepository: MetricsRepository) {}
 
-  async execute(
-    metricType: string,
-    params: Record<string, unknown>
-  ): Promise<CalculateMetricsResponse | null> {
+  async execute(metricType: string): Promise<CalculateMetricsResponse | null> {
     if (metricType === "retention") {
       return this.calculateRetention();
     } else if (metricType === "engagement") {

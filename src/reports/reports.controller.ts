@@ -41,7 +41,7 @@ export class ReportsController {
     }
 
     const startTime = Date.now();
-    const result: any = await this.generateReportHandler.execute(body);
+    const result = await this.generateReportHandler.execute(body);
     const duration = Date.now() - startTime;
 
     console.log(`Report generation completed in ${duration}ms`);

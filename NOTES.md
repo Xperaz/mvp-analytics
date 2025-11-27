@@ -208,19 +208,102 @@ export class UsersRepository {
 
 ---
 
+### 8. No Input Validation (Security & Data Integrity)
+
+**Before:** No validation on incoming request data. Invalid data could reach the database.
+
+```typescript
+// Anyone could send anything
+export interface CreateUserRequest {
+  email: string; // No email format check
+  planType: string; // No valid plan check
+}
+
+// Invalid data accepted:
+// { email: "not-an-email", planType: "invalid_plan" }
+```
+
+**Problems:**
+
+- Invalid emails stored in database
+- Invalid plan types accepted
+- SQL errors from wrong data types
+- No meaningful error messages for users
+- Security vulnerabilities from unvalidated input
+
+**After:** Request DTOs with validation decorators using `class-validator`.
+
+```typescript
+import { IsEmail, IsNotEmpty } from "class-validator";
+import { IsValidPlanType } from "../../shared/validators";
+
+export class CreateUserRequest {
+  @IsEmail({}, { message: "Please provide a valid email address" })
+  @IsNotEmpty({ message: "Email is required" })
+  email: string;
+
+  @IsValidPlanType()
+  @IsNotEmpty({ message: "Plan type is required" })
+  planType: PlanType;
+}
+```
+
+**Validation response on invalid data:**
+
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "Please provide a valid email address",
+    "planType must be one of: basic, enterprise"
+  ],
+  "error": "Bad Request"
+}
+```
+
+**Validations added:**
+
+| Field        | Validations                                                              |
+| ------------ | ------------------------------------------------------------------------ |
+| `email`      | Required, valid email format                                             |
+| `planType`   | Required, must be "basic" or "enterprise"                                |
+| `userId`     | Required, integer, minimum 1                                             |
+| `eventType`  | Required, non-empty string                                               |
+| `eventData`  | Optional, must be object                                                 |
+| `sessionId`  | Required, non-empty string                                               |
+| `reportType` | Required, must be "user_activity", "daily_summary", or "user_engagement" |
+| `format`     | Optional, must be "json", "html", or "csv"                               |
+
+**Files created/updated:**
+
+- `src/main.ts` - Global ValidationPipe enabled
+- `src/shared/validators/plan-type.validator.ts` - Custom PlanType validator
+- `src/users/create-user/create-user.request.ts`
+- `src/events/track-event/track-event.request.ts`
+- `src/reports/create-report/create-report.request.ts`
+- `src/reports/generate-report/generate-report.request.ts`
+
+**Dependencies added:**
+
+- `class-validator` - Validation decorators
+- `class-transformer` - Transform plain objects to class instances
+
+---
+
 ## Summary: Before & After
 
-| Aspect          | Before                            | After                                             |
-| --------------- | --------------------------------- | ------------------------------------------------- |
-| Security        | SQL injection vulnerabilities     | Parameterized queries - injection eliminated      |
-| Type Safety     | Extensive use of `any` types      | Full TypeScript type coverage                     |
-| Maintainability | 500+ lines in single service file | Each file has single responsibility               |
-| Testability     | Hard to mock - tightly coupled    | Easy to mock repositories in unit tests           |
-| Scalability     | Changes affect entire service     | New features added without touching existing code |
-| Code Reuse      | Duplicate queries across methods  | Shared queries in repositories                    |
-| Module Naming   | All modules named `AppModule`     | Proper names: `UsersModule`, `EventsModule`, etc. |
-| Routes          | Double prefixes `/users/users`    | Clean routes `/users`                             |
-| DB Connections  | 4 separate connections            | Single shared connection via DI                   |
+| Aspect           | Before                            | After                                             |
+| ---------------- | --------------------------------- | ------------------------------------------------- |
+| Security         | SQL injection vulnerabilities     | Parameterized queries - injection eliminated      |
+| Type Safety      | Extensive use of `any` types      | Full TypeScript type coverage                     |
+| Maintainability  | 500+ lines in single service file | Each file has single responsibility               |
+| Testability      | Hard to mock - tightly coupled    | Easy to mock repositories in unit tests           |
+| Scalability      | Changes affect entire service     | New features added without touching existing code |
+| Code Reuse       | Duplicate queries across methods  | Shared queries in repositories                    |
+| Module Naming    | All modules named `AppModule`     | Proper names: `UsersModule`, `EventsModule`, etc. |
+| Routes           | Double prefixes `/users/users`    | Clean routes `/users`                             |
+| DB Connections   | 4 separate connections            | Single shared connection via DI                   |
+| Input Validation | No validation, any data accepted  | class-validator with meaningful error messages    |
 
 ---
 
