@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import * as sqlite3 from "sqlite3";
-import * as path from "path";
+import { DATABASE_CONNECTION } from "../shared/database";
 
 export interface Event {
   id: number;
@@ -14,17 +14,13 @@ export interface Event {
 export interface CreateEventParams {
   userId: number;
   eventType: string;
-  eventData: any;
+  eventData: Record<string, unknown>;
   sessionId: string;
 }
 
 @Injectable()
 export class EventsRepository {
-  private db: sqlite3.Database;
-
-  constructor() {
-    this.db = new sqlite3.Database(path.join(process.cwd(), "analytics.db"));
-  }
+  constructor(@Inject(DATABASE_CONNECTION) private db: sqlite3.Database) {}
 
   async create(
     params: CreateEventParams

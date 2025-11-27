@@ -1,4 +1,4 @@
 export interface ExecuteReportResponse {
   reportName: string;
-  data: any[];
+  data: Record<string, unknown>[];
 }

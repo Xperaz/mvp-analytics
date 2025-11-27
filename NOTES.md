@@ -141,6 +141,73 @@ async execute(type: string, params: Record<string, unknown>): Promise<Record<str
 
 ---
 
+### 7. Multiple Database Connections (Resource Waste)
+
+**Before:** Each repository created its own database connection.
+
+```typescript
+// UsersRepository
+constructor() {
+  this.db = new sqlite3.Database("analytics.db"); // Connection 1
+}
+
+// EventsRepository
+constructor() {
+  this.db = new sqlite3.Database("analytics.db"); // Connection 2
+}
+
+// ReportsRepository
+constructor() {
+  this.db = new sqlite3.Database("analytics.db"); // Connection 3
+}
+
+// 4 repositories = 4 separate connections to the same database!
+```
+
+**Problems:**
+
+- Resource waste (memory for each connection)
+- SQLite connection limits
+- Inconsistent transaction state
+- Hard to mock for testing
+- Configuration repeated in each file
+
+**After:** Single shared database connection via dependency injection.
+
+```typescript
+// shared/database/database.provider.ts
+export const databaseProvider = {
+  provide: DATABASE_CONNECTION,
+  useFactory: (): sqlite3.Database => {
+    const db = new sqlite3.Database("analytics.db");
+    db.run("PRAGMA foreign_keys = ON");
+    return db;
+  },
+};
+
+// All repositories inject the SAME connection
+@Injectable()
+export class UsersRepository {
+  constructor(@Inject(DATABASE_CONNECTION) private db: sqlite3.Database) {}
+}
+```
+
+**Benefits:**
+
+- Single connection shared by all repositories
+- Proper NestJS dependency injection pattern
+- Easy to mock `DATABASE_CONNECTION` in unit tests
+- Central configuration (PRAGMA settings in one place)
+- Memory efficient
+
+**Files created:**
+
+- `src/shared/database/database.provider.ts`
+- `src/shared/database/database.module.ts`
+- `src/shared/database/index.ts`
+
+---
+
 ## Summary: Before & After
 
 | Aspect          | Before                            | After                                             |
@@ -153,6 +220,7 @@ async execute(type: string, params: Record<string, unknown>): Promise<Record<str
 | Code Reuse      | Duplicate queries across methods  | Shared queries in repositories                    |
 | Module Naming   | All modules named `AppModule`     | Proper names: `UsersModule`, `EventsModule`, etc. |
 | Routes          | Double prefixes `/users/users`    | Clean routes `/users`                             |
+| DB Connections  | 4 separate connections            | Single shared connection via DI                   |
 
 ---
 

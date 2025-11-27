@@ -1,6 +1,22 @@
+export interface UserActivityData {
+  event_type: string;
+  count: number;
+}
+
+export interface DailySummaryData {
+  date: string;
+  events: number;
+}
+
+export interface UserEngagementData {
+  email: string;
+  events: number;
+  plan_type: string;
+}
+
 export interface GenerateReportResponse {
   type?: string;
-  data?: any[];
+  data?: UserActivityData[] | DailySummaryData[] | UserEngagementData[];
   formatted?: string;
   html?: string;
   csv?: string;

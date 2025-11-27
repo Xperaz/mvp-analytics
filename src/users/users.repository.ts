@@ -1,11 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import * as sqlite3 from "sqlite3";
-import * as path from "path";
+import { DATABASE_CONNECTION } from "../shared/database";
+import { PlanType } from "../shared/types";
 
 export interface User {
   id: number;
   email: string;
-  plan_type: string;
+  plan_type: PlanType;
   created_at: string;
 }
 
@@ -15,19 +16,15 @@ export interface UserWithEventCount extends User {
 
 @Injectable()
 export class UsersRepository {
-  private db: sqlite3.Database;
-
-  constructor() {
-    this.db = new sqlite3.Database(path.join(process.cwd(), "analytics.db"));
-  }
+  constructor(@Inject(DATABASE_CONNECTION) private db: sqlite3.Database) {}
 
   async create(
     email: string,
-    planType: string
-  ): Promise<{ id: number; email: string; planType: string }> {
+    planType: PlanType
+  ): Promise<{ id: number; email: string; planType: PlanType }> {
     return new Promise((resolve) => {
       const sql = `INSERT INTO users (email, plan_type, created_at) VALUES (?, ?, datetime('now'))`;
-      this.db.run(sql, [email, planType], function (err) {
+      this.db.run(sql, [email, planType], function () {
         resolve({ id: this.lastID, email, planType });
       });
     });
@@ -61,7 +58,7 @@ export class UsersRepository {
   ): Promise<number> {
     return new Promise((resolve) => {
       const sql = `SELECT COUNT(*) as cnt FROM events WHERE user_id = ? AND event_type = ?`;
-      this.db.get(sql, [userId, eventType], (err, row: any) => {
+      this.db.get(sql, [userId, eventType], (_err, row: { cnt: number }) => {
         resolve(row?.cnt || 0);
       });
     });

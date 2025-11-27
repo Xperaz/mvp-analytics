@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import * as sqlite3 from "sqlite3";
-import * as path from "path";
+import { DATABASE_CONNECTION } from "../shared/database";
 
 export interface Report {
   id: number;
@@ -29,11 +29,7 @@ export interface UserEngagementRow {
 
 @Injectable()
 export class ReportsRepository {
-  private db: sqlite3.Database;
-
-  constructor() {
-    this.db = new sqlite3.Database(path.join(process.cwd(), "analytics.db"));
-  }
+  constructor(@Inject(DATABASE_CONNECTION) private db: sqlite3.Database) {}
 
   async create(
     name: string,
@@ -60,9 +56,9 @@ export class ReportsRepository {
     });
   }
 
-  async executeQuery(sql: string): Promise<any[]> {
+  async executeQuery(sql: string): Promise<Record<string, unknown>[]> {
     return new Promise((resolve) => {
-      this.db.all(sql, (err, rows) => {
+      this.db.all(sql, (_err, rows: Record<string, unknown>[]) => {
         resolve(rows || []);
       });
     });
@@ -75,7 +71,7 @@ export class ReportsRepository {
       this.db.get(
         `SELECT * FROM users WHERE id = ?`,
         [userId],
-        (err, row: any) => {
+        (_err, row: { id: number; plan_type: string }) => {
           resolve(row || null);
         }
       );

@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import * as sqlite3 from "sqlite3";
-import * as path from "path";
+import { DATABASE_CONNECTION } from "../shared/database";
 
 export interface TopEventRow {
   event_type: string;
@@ -21,11 +21,7 @@ export interface AvgEventsRow {
 
 @Injectable()
 export class MetricsRepository {
-  private db: sqlite3.Database;
-
-  constructor() {
-    this.db = new sqlite3.Database(path.join(process.cwd(), "analytics.db"));
-  }
+  constructor(@Inject(DATABASE_CONNECTION) private db: sqlite3.Database) {}
 
   async countUsers(): Promise<number> {
     return new Promise((resolve) => {
