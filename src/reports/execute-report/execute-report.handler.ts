@@ -1,33 +1,17 @@
 import { Injectable } from "@nestjs/common";
-import * as sqlite3 from "sqlite3";
-import * as path from "path";
+import { ReportsRepository } from "../reports.repository";
 import { ExecuteReportResponse } from "./execute-report.response";
 
 @Injectable()
 export class ExecuteReportHandler {
-  private db: sqlite3.Database;
-
-  constructor() {
-    this.db = new sqlite3.Database(path.join(process.cwd(), "analytics.db"));
-  }
+  constructor(private reportsRepository: ReportsRepository) {}
 
   async execute(reportId: string): Promise<ExecuteReportResponse | null> {
-    const report: any = await new Promise((resolve) => {
-      this.db.get(
-        `SELECT * FROM reports WHERE id = ?`,
-        [reportId],
-        (err, row) => {
-          resolve(row);
-        }
-      );
-    });
+    const report = await this.reportsRepository.findById(reportId);
 
     if (!report) return null;
 
-    return new Promise((resolve) => {
-      this.db.all(report.query_sql, (err, rows) => {
-        resolve({ reportName: report.name, data: rows });
-      });
-    });
+    const data = await this.reportsRepository.executeQuery(report.query_sql);
+    return { reportName: report.name, data };
   }
 }

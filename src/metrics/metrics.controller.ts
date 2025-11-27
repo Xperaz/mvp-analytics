@@ -25,7 +25,10 @@ export class MetricsController {
   }
 
   @Get(":type")
-  async getMetrics(@Param("type") type: string, @Query() params: any) {
+  async getMetrics(
+    @Param("type") type: string,
+    @Query() params: Record<string, unknown>
+  ) {
     return this.calculateMetricsHandler.execute(type, params);
   }
 }

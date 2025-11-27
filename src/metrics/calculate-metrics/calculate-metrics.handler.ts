@@ -1,19 +1,14 @@
 import { Injectable } from "@nestjs/common";
-import * as sqlite3 from "sqlite3";
-import * as path from "path";
+import { MetricsRepository } from "../metrics.repository";
 import { CalculateMetricsResponse } from "./calculate-metrics.response";
 
 @Injectable()
 export class CalculateMetricsHandler {
-  private db: sqlite3.Database;
-
-  constructor() {
-    this.db = new sqlite3.Database(path.join(process.cwd(), "analytics.db"));
-  }
+  constructor(private metricsRepository: MetricsRepository) {}
 
   async execute(
     metricType: string,
-    params: any
+    params: Record<string, unknown>
   ): Promise<CalculateMetricsResponse | null> {
     if (metricType === "retention") {
       return this.calculateRetention();
@@ -26,48 +21,41 @@ export class CalculateMetricsHandler {
   }
 
   private async calculateRetention(): Promise<CalculateMetricsResponse> {
-    const sql = `SELECT COUNT(DISTINCT user_id) as users FROM events WHERE timestamp >= datetime('now', '-7 days')`;
-    const weeklyUsers: any = await new Promise((resolve) => {
-      this.db.get(sql, (err, row) => resolve(row));
-    });
-    const monthlyUsers: any = await new Promise((resolve) => {
-      this.db.get(
-        `SELECT COUNT(DISTINCT user_id) as users FROM events WHERE timestamp >= datetime('now', '-30 days')`,
-        (err, row) => resolve(row)
-      );
-    });
+    const [weeklyUsers, monthlyUsers] = await Promise.all([
+      this.metricsRepository.getWeeklyActiveUsers(),
+      this.metricsRepository.getMonthlyActiveUsers(),
+    ]);
+
+    const retention =
+      monthlyUsers > 0
+        ? ((weeklyUsers / monthlyUsers) * 100).toFixed(2)
+        : "0.00";
+
     return {
-      weekly: weeklyUsers.users,
-      monthly: monthlyUsers.users,
-      retention: ((weeklyUsers.users / monthlyUsers.users) * 100).toFixed(2),
+      weekly: weeklyUsers,
+      monthly: monthlyUsers,
+      retention,
     };
   }
 
   private async calculateEngagement(): Promise<CalculateMetricsResponse> {
-    const sql = `SELECT AVG(event_count) as avg_events FROM (SELECT user_id, COUNT(*) as event_count FROM events GROUP BY user_id)`;
-    const result: any = await new Promise((resolve) => {
-      this.db.get(sql, (err, row) => resolve(row));
-    });
-    return { average_events_per_user: result.avg_events };
+    const avgEvents = await this.metricsRepository.getAverageEventsPerUser();
+    return { average_events_per_user: avgEvents };
   }
 
   private async calculateConversion(): Promise<CalculateMetricsResponse> {
-    const signups: any = await new Promise((resolve) => {
-      this.db.get(
-        `SELECT COUNT(*) as count FROM events WHERE event_type = 'signup'`,
-        (err, row) => resolve(row)
-      );
-    });
-    const pageViews: any = await new Promise((resolve) => {
-      this.db.get(
-        `SELECT COUNT(*) as count FROM events WHERE event_type = 'page_view'`,
-        (err, row) => resolve(row)
-      );
-    });
+    const [signups, pageViews] = await Promise.all([
+      this.metricsRepository.countEventsByType("signup"),
+      this.metricsRepository.countEventsByType("page_view"),
+    ]);
+
+    const conversionRate =
+      pageViews > 0 ? ((signups / pageViews) * 100).toFixed(2) : "0.00";
+
     return {
-      signups: signups.count,
-      page_views: pageViews.count,
-      conversion_rate: ((signups.count / pageViews.count) * 100).toFixed(2),
+      signups,
+      page_views: pageViews,
+      conversion_rate: conversionRate,
     };
   }
 }
