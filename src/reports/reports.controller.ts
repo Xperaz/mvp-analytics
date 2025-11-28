@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Param } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, UseGuards } from "@nestjs/common";
 import { CreateReportHandler, CreateReportRequest } from "./create-report";
 import { ExecuteReportHandler } from "./execute-report";
 import {
   GenerateReportHandler,
   GenerateReportRequest,
 } from "./generate-report";
+import { UserAccessGuard, RequireAccess } from "../shared/guards";
 
 @Controller("reports")
 export class ReportsController {
@@ -25,39 +26,9 @@ export class ReportsController {
   }
 
   @Post("generate")
+  @UseGuards(UserAccessGuard)
+  @RequireAccess("reports")
   async generateReport(@Body() body: GenerateReportRequest) {
-    if (!body.userId || !body.reportType) {
-      console.log("Missing required fields for report generation");
-      return { error: "Missing userId or reportType" };
-    }
-
-    const hasAccess = await this.generateReportHandler.validateUserAccess(
-      body.userId,
-      "reports"
-    );
-    if (!hasAccess) {
-      console.log(`Access denied for user ${body.userId} to reports`);
-      return { error: "Access denied" };
-    }
-
-    const startTime = Date.now();
-    const result = await this.generateReportHandler.execute(body);
-    const duration = Date.now() - startTime;
-
-    console.log(`Report generation completed in ${duration}ms`);
-
-    if (result.error) {
-      return result;
-    }
-
-    return {
-      ...result,
-      metadata: {
-        generated_at: new Date().toISOString(),
-        generation_time_ms: duration,
-        requested_by: body.userId,
-        format: body.format || "json",
-      },
-    };
+    return this.generateReportHandler.execute(body);
   }
 }

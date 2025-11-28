@@ -14,6 +14,13 @@ export interface UserEngagementData {
   plan_type: string;
 }
 
+export interface ReportMetadata {
+  generatedAt: string;
+  generationTimeMs: number;
+  requestedBy: number;
+  format: string;
+}
+
 export interface GenerateReportResponse {
   type?: string;
   data?: UserActivityData[] | DailySummaryData[] | UserEngagementData[];
@@ -27,5 +34,6 @@ export interface GenerateReportResponse {
     total_users: number;
   };
   timestamp?: string;
+  metadata?: ReportMetadata;
   error?: string;
 }

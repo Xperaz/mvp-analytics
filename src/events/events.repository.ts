@@ -25,7 +25,7 @@ export class EventsRepository {
   async create(
     params: CreateEventParams
   ): Promise<{ id: number; eventType: string }> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const sql = `INSERT INTO events (user_id, event_type, event_data, timestamp, session_id) 
                    VALUES (?, ?, ?, datetime('now'), ?)`;
       this.db.run(
@@ -36,7 +36,8 @@ export class EventsRepository {
           JSON.stringify(params.eventData),
           params.sessionId,
         ],
-        function () {
+        function (err) {
+          if (err) return reject(err);
           resolve({ id: this.lastID, eventType: params.eventType });
         }
       );
@@ -47,7 +48,7 @@ export class EventsRepository {
     return new Promise((resolve, reject) => {
       const sql = `SELECT * FROM events WHERE event_type = ? AND user_id = ?`;
       this.db.all(sql, [eventType, userId], (err, rows: Event[]) => {
-        if (err) reject(err);
+        if (err) return reject(err);
         resolve(rows || []);
       });
     });

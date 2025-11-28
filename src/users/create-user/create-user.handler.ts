@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { UsersRepository } from "../users.repository";
 import { PlanType } from "../../shared/types";
 
@@ -10,6 +10,11 @@ export class CreateUserHandler {
     email: string,
     planType: PlanType
   ): Promise<{ id: number; email: string; planType: PlanType }> {
-    return this.usersRepository.create(email, planType);
+    try {
+      return await this.usersRepository.create(email, planType);
+    } catch (error) {
+      console.error("Failed to create user:", error);
+      throw new InternalServerErrorException("Failed to create user");
+    }
   }
 }

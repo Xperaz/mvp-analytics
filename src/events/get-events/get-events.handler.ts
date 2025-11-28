@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { EventsRepository } from "../events.repository";
 import { GetEventsResponse } from "./get-events.response";
 
@@ -10,6 +10,11 @@ export class GetEventsHandler {
     eventType: string,
     userId: string
   ): Promise<GetEventsResponse[]> {
-    return this.eventsRepository.findByTypeAndUser(eventType, userId);
+    try {
+      return await this.eventsRepository.findByTypeAndUser(eventType, userId);
+    } catch (error) {
+      console.error("Failed to get events:", error);
+      throw new InternalServerErrorException("Failed to get events");
+    }
   }
 }

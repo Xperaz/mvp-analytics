@@ -1,4 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { MetricsRepository } from "../metrics.repository";
 import { CalculateMetricsResponse } from "./calculate-metrics.response";
 
@@ -6,15 +10,23 @@ import { CalculateMetricsResponse } from "./calculate-metrics.response";
 export class CalculateMetricsHandler {
   constructor(private metricsRepository: MetricsRepository) {}
 
-  async execute(metricType: string): Promise<CalculateMetricsResponse | null> {
-    if (metricType === "retention") {
-      return this.calculateRetention();
-    } else if (metricType === "engagement") {
-      return this.calculateEngagement();
-    } else if (metricType === "conversion") {
-      return this.calculateConversion();
+  async execute(metricType: string): Promise<CalculateMetricsResponse> {
+    try {
+      if (metricType === "retention") {
+        return await this.calculateRetention();
+      } else if (metricType === "engagement") {
+        return await this.calculateEngagement();
+      } else if (metricType === "conversion") {
+        return await this.calculateConversion();
+      }
+      throw new BadRequestException(`Unknown metric type: ${metricType}`);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error("Failed to calculate metrics:", error);
+      throw new InternalServerErrorException("Failed to calculate metrics");
     }
-    return null;
   }
 
   private async calculateRetention(): Promise<CalculateMetricsResponse> {

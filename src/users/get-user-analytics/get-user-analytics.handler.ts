@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { UsersRepository } from "../users.repository";
 import { GetUserAnalyticsResponse } from "./get-user-analytics.response";
 
@@ -7,6 +7,11 @@ export class GetUserAnalyticsHandler {
   constructor(private usersRepository: UsersRepository) {}
 
   async execute(): Promise<GetUserAnalyticsResponse[]> {
-    return this.usersRepository.findAllWithEventCount();
+    try {
+      return await this.usersRepository.findAllWithEventCount();
+    } catch (error) {
+      console.error("Failed to get user analytics:", error);
+      throw new InternalServerErrorException("Failed to get user analytics");
+    }
   }
 }

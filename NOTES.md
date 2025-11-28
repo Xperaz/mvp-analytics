@@ -290,6 +290,207 @@ export class CreateUserRequest {
 
 ---
 
+### 9. Access Control Mixed with Business Logic
+
+**Before:** Access validation was embedded inside handlers, mixing security concerns with business logic.
+
+```typescript
+// generate-report.handler.ts - Access check mixed with business logic
+async execute(request: GenerateReportRequest): Promise<GenerateReportResponse> {
+  // Access check buried in handler
+  const hasAccess = await this.validateUserAccess(request.userId, "reports");
+  if (!hasAccess) {
+    return { error: "Access denied" };
+  }
+
+  // Business logic...
+}
+```
+
+**Problems:**
+
+- Access logic duplicated in each handler
+- Easy to forget adding access check to new endpoints
+- Hard to test business logic separately from access control
+- Violates Single Responsibility Principle
+- No centralized access rules
+
+**After:** Dedicated `UserAccessGuard` with `@RequireAccess()` decorator.
+
+```typescript
+// Controller - Clean and declarative
+@Post("generate")
+@UseGuards(UserAccessGuard)      // Guard runs BEFORE handler
+@RequireAccess("reports")         // Declares what resource is needed
+async generateReport(@Body() body: GenerateReportRequest) {
+  return this.generateReportHandler.execute(body);  // Only business logic
+}
+
+// Handler - Only business logic, no access checks
+async execute(request: GenerateReportRequest): Promise<GenerateReportResponse> {
+  // Pure business logic here
+  console.log(`Generating ${request.reportType} report`);
+  // ...
+}
+```
+
+**How the Guard works:**
+
+```
+Request → ValidationPipe → UserAccessGuard → Controller → Handler → Response
+                              ↓
+                    1. Read @RequireAccess("reports")
+                    2. Extract userId from request
+                    3. Look up user's plan_type
+                    4. Check if plan allows "reports"
+                    5. Allow or throw ForbiddenException
+```
+
+**Access Rules defined in one place:**
+
+```typescript
+const accessRules: Record<ResourceType, string[]> = {
+  reports: ["pro", "enterprise"], // Pro and Enterprise only
+  analytics: ["pro", "enterprise"], // Pro and Enterprise only
+  metrics: ["basic", "pro", "enterprise"], // All plans
+  admin: ["enterprise"], // Enterprise only
+};
+```
+
+**Benefits:**
+
+- Separation of concerns (security vs business logic)
+- Reusable across any endpoint
+- Easy to test guard and handler independently
+- Centralized access rules
+- Clear, declarative syntax with decorators
+
+**Files created:**
+
+- `src/shared/guards/user-access.guard.ts` - The guard implementation
+- `src/shared/guards/index.ts` - Exports
+
+---
+
+### 10. Missing Error Handling (Reliability & Debugging)
+
+**Before:** Database errors were silently ignored, making debugging nearly impossible.
+
+```typescript
+// Repository - Error completely ignored
+async findById(id: number): Promise<User | null> {
+  return new Promise((resolve) => {
+    this.db.get(`SELECT * FROM users WHERE id = ?`, [id], (err, row) => {
+      resolve(row || null);  // err is ignored!
+    });
+  });
+}
+
+// Handler - No try/catch, errors crash the server
+async execute(userId: string): Promise<number> {
+  return this.usersRepository.countUserEventsByType(userId, metricType);
+}
+
+// Bug: reject without return continues to resolve
+this.db.all(sql, (err, rows) => {
+  if (err) reject(err);  // Missing return!
+  resolve(rows || []);   // This still executes after reject
+});
+```
+
+**Problems:**
+
+- Database errors silently swallowed
+- Hard to debug production issues
+- No meaningful error messages for API consumers
+- `return null` instead of proper HTTP exceptions
+- Promise both rejected AND resolved (undefined behavior)
+
+**After:** Proper error handling at all layers.
+
+**Repositories - Error propagation with reject:**
+
+```typescript
+async findById(id: number): Promise<User | null> {
+  return new Promise((resolve, reject) => {
+    this.db.get(`SELECT * FROM users WHERE id = ?`, [id], (err, row) => {
+      if (err) return reject(err);  // Error bubbles up
+      resolve(row || null);
+    });
+  });
+}
+```
+
+**Handlers - try/catch with proper HTTP exceptions:**
+
+```typescript
+async execute(userId: string, metricType: string): Promise<number> {
+  try {
+    return await this.usersRepository.countUserEventsByType(userId, metricType);
+  } catch (error) {
+    console.error("Failed to get user metrics:", error);
+    throw new InternalServerErrorException("Failed to get user metrics");
+  }
+}
+```
+
+**Returning proper HTTP exceptions instead of null:**
+
+```typescript
+// Before: Returning null
+async execute(reportId: string): Promise<ExecuteReportResponse | null> {
+  const report = await this.reportsRepository.findById(reportId);
+  if (!report) return null;  // Client gets empty response
+}
+
+// After: Throwing NotFoundException
+async execute(reportId: string): Promise<ExecuteReportResponse> {
+  const report = await this.reportsRepository.findById(reportId);
+  if (!report) {
+    throw new NotFoundException(`Report with ID ${reportId} not found`);
+  }
+}
+```
+
+**Database provider - Connection error handling:**
+
+```typescript
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error(`Failed to connect to database: ${err.message}`);
+    throw err;
+  }
+  console.log(`Database connected: ${dbPath}`);
+});
+```
+
+**Guard - NaN check for userId:**
+
+```typescript
+const userId = Number(rawUserId);
+if (isNaN(userId)) {
+  return null; // Invalid userId like "abc" is rejected
+}
+```
+
+**Error types used:**
+
+| Exception                      | When to Use                      |
+| ------------------------------ | -------------------------------- |
+| `NotFoundException`            | Resource not found (404)         |
+| `BadRequestException`          | Invalid input/unknown type (400) |
+| `ForbiddenException`           | Access denied (403)              |
+| `InternalServerErrorException` | Database/server errors (500)     |
+
+**Files updated:**
+
+- `src/shared/database/database.provider.ts` - Connection error handling
+- `src/shared/guards/user-access.guard.ts` - NaN check + DB error handling
+- All 4 repositories - `if (err) return reject(err)` pattern
+- All 12 handlers - try/catch with proper exceptions
+
+---
+
 ## Summary: Before & After
 
 | Aspect           | Before                            | After                                             |
@@ -304,6 +505,8 @@ export class CreateUserRequest {
 | Routes           | Double prefixes `/users/users`    | Clean routes `/users`                             |
 | DB Connections   | 4 separate connections            | Single shared connection via DI                   |
 | Input Validation | No validation, any data accepted  | class-validator with meaningful error messages    |
+| Access Control   | Mixed in handlers                 | Dedicated guard with @RequireAccess decorator     |
+| Error Handling   | Errors silently ignored           | Proper exceptions with meaningful messages        |
 
 ---
 

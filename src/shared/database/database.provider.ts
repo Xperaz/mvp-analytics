@@ -9,12 +9,22 @@ export const databaseProvider = {
   provide: DATABASE_CONNECTION,
   useFactory: (): sqlite3.Database => {
     const dbPath = path.join(process.cwd(), "analytics.db");
-    const db = new sqlite3.Database(dbPath);
 
-    // Enable foreign keys
-    db.run("PRAGMA foreign_keys = ON");
+    const db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error(`Failed to connect to database: ${err.message}`);
+        throw err;
+      }
+      console.log(`Database connected: ${dbPath}`);
+    });
 
-    console.log(`Database connected: ${dbPath}`);
+    // Enable foreign keys with
+    db.run("PRAGMA foreign_keys = ON", (err) => {
+      if (err) {
+        console.error(`Failed to enable foreign keys: ${err.message}`);
+      }
+    });
+
     return db;
   },
 };

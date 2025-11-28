@@ -36,20 +36,22 @@ export class ReportsRepository {
     querySql: string,
     createdBy: number
   ): Promise<{ id: number; name: string; querySql: string }> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const sql = `INSERT INTO reports (name, query_sql, created_by, created_at) VALUES (?, ?, ?, datetime('now'))`;
-      this.db.run(sql, [name, querySql, createdBy], function () {
+      this.db.run(sql, [name, querySql, createdBy], function (err) {
+        if (err) return reject(err);
         resolve({ id: this.lastID, name, querySql });
       });
     });
   }
 
   async findById(reportId: string): Promise<Report | null> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.db.get(
         `SELECT * FROM reports WHERE id = ?`,
         [reportId],
         (err, row: Report) => {
+          if (err) return reject(err);
           resolve(row || null);
         }
       );
@@ -57,8 +59,9 @@ export class ReportsRepository {
   }
 
   async executeQuery(sql: string): Promise<Record<string, unknown>[]> {
-    return new Promise((resolve) => {
-      this.db.all(sql, (_err, rows: Record<string, unknown>[]) => {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, (err, rows: Record<string, unknown>[]) => {
+        if (err) return reject(err);
         resolve(rows || []);
       });
     });
@@ -67,11 +70,12 @@ export class ReportsRepository {
   async findUserById(
     userId: number
   ): Promise<{ id: number; plan_type: string } | null> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.db.get(
         `SELECT * FROM users WHERE id = ?`,
         [userId],
-        (_err, row: { id: number; plan_type: string }) => {
+        (err, row: { id: number; plan_type: string }) => {
+          if (err) return reject(err);
           resolve(row || null);
         }
       );
@@ -82,7 +86,7 @@ export class ReportsRepository {
     return new Promise((resolve, reject) => {
       const sql = `SELECT event_type, COUNT(*) as count FROM events WHERE user_id = ? GROUP BY event_type`;
       this.db.all(sql, [userId], (err, rows: UserActivityRow[]) => {
-        if (err) reject(err);
+        if (err) return reject(err);
         resolve(rows || []);
       });
     });
@@ -92,7 +96,7 @@ export class ReportsRepository {
     return new Promise((resolve, reject) => {
       const sql = `SELECT DATE(timestamp) as date, COUNT(*) as events FROM events GROUP BY DATE(timestamp)`;
       this.db.all(sql, (err, rows: DailySummaryRow[]) => {
-        if (err) reject(err);
+        if (err) return reject(err);
         resolve(rows || []);
       });
     });
@@ -102,7 +106,7 @@ export class ReportsRepository {
     return new Promise((resolve, reject) => {
       const sql = `SELECT u.email, COUNT(e.id) as events, u.plan_type FROM users u LEFT JOIN events e ON u.id = e.user_id GROUP BY u.id`;
       this.db.all(sql, (err, rows: UserEngagementRow[]) => {
-        if (err) reject(err);
+        if (err) return reject(err);
         resolve(rows || []);
       });
     });

@@ -12,8 +12,8 @@ export class MetricsController {
   ) {}
 
   @Get("/dashboard")
-  async getDashboard(@Query("dateRange") dateRange: string) {
-    return this.getDashboardHandler.execute(dateRange);
+  async getDashboard() {
+    return this.getDashboardHandler.execute();
   }
 
   @Get("/retention_analysis")
@@ -25,10 +25,7 @@ export class MetricsController {
   }
 
   @Get(":type")
-  async getMetrics(
-    @Param("type") type: string,
-    @Query() params: Record<string, unknown>
-  ) {
-    return this.calculateMetricsHandler.execute(type, params);
+  async getMetrics(@Param("type") type: string) {
+    return this.calculateMetricsHandler.execute(type);
   }
 }
