@@ -12,6 +12,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "baseUrl": "./src",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@analytics/*": ["*"]
     }

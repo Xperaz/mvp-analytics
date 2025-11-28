@@ -507,6 +507,113 @@ if (isNaN(userId)) {
 | Input Validation | No validation, any data accepted  | class-validator with meaningful error messages    |
 | Access Control   | Mixed in handlers                 | Dedicated guard with @RequireAccess decorator     |
 | Error Handling   | Errors silently ignored           | Proper exceptions with meaningful messages        |
+| Unit Tests       | No tests for handlers             | 50 tests covering all slices                      |
+
+---
+
+## Unit Testing (VSA Pattern)
+
+Unit tests are co-located with each slice following the Vertical Slice Architecture pattern.
+
+### Test Structure
+
+```
+src/
+├── test/
+│   └── setup.ts                    # Jest setup (console mocking)
+├── users/
+│   ├── users.controller.spec.ts
+│   ├── create-user/
+│   │   └── create-user.handler.spec.ts
+│   ├── get-user-analytics/
+│   │   └── get-user-analytics.handler.spec.ts
+│   └── get-user-metrics/
+│       └── get-user-metrics.handler.spec.ts
+├── events/
+│   ├── events.controller.spec.ts
+│   ├── track-event/
+│   │   └── track-event.handler.spec.ts
+│   ├── get-events/
+│   │   └── get-events.handler.spec.ts
+│   └── process-event/
+│       └── process-event.handler.spec.ts
+├── metrics/
+│   ├── metrics.controller.spec.ts
+│   ├── get-dashboard/
+│   │   └── get-dashboard.handler.spec.ts
+│   ├── get-retention/
+│   │   └── get-retention.handler.spec.ts
+│   └── calculate-metrics/
+│       └── calculate-metrics.handler.spec.ts
+└── reports/
+    ├── reports.controller.spec.ts
+    ├── create-report/
+    │   └── create-report.handler.spec.ts
+    ├── execute-report/
+    │   └── execute-report.handler.spec.ts
+    └── generate-report/
+        └── generate-report.handler.spec.ts
+```
+
+### Test Coverage
+
+| Slice     | Controller | Handlers | Total  |
+| --------- | ---------- | -------- | ------ |
+| Users     | 6 tests    | 6 tests  | 12     |
+| Events    | 6 tests    | 6 tests  | 12     |
+| Metrics   | 6 tests    | 6 tests  | 12     |
+| Reports   | 6 tests    | 6 tests  | 12     |
+| **Total** | **24**     | **24**   | **48** |
+
+### Testing Pattern
+
+Each test file follows the same pattern:
+
+1. **Happy path** - Verify successful execution
+2. **Error path** - Verify proper exception handling
+
+```typescript
+describe("CreateUserHandler", () => {
+  // Mock repository
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      providers: [
+        CreateUserHandler,
+        { provide: UsersRepository, useValue: { create: jest.fn() } },
+      ],
+    }).compile();
+  });
+
+  it("should create user successfully", async () => {
+    // Arrange - mock success
+    usersRepository.create.mockResolvedValue(expectedResult);
+    // Act & Assert
+    expect(await handler.execute(email, planType)).toEqual(expectedResult);
+  });
+
+  it("should throw InternalServerErrorException on failure", async () => {
+    // Arrange - mock failure
+    usersRepository.create.mockRejectedValue(new Error("DB error"));
+    // Act & Assert
+    await expect(handler.execute(email, planType)).rejects.toThrow(
+      InternalServerErrorException
+    );
+  });
+});
+```
+
+### Key Testing Practices
+
+- **Mocked dependencies** - Repositories are mocked, not real DB
+- **Isolated tests** - Each test is independent
+- **Console suppression** - `jest.spyOn(console, "error").mockImplementation()`
+- **Guard override** - `.overrideGuard(UserAccessGuard).useValue({ canActivate: () => true })`
+
+**Files created:**
+
+- `src/test/setup.ts` - Global Jest setup
+- `jest.config.js` - Updated with `setupFilesAfterEnv`
+- 16 new test files (4 controllers + 12 handlers)
 
 ---
 
